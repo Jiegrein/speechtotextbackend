@@ -1,3 +1,5 @@
 .env
 frontend.html
 .vs
+/venv
+__pycache__

@@ -1,0 +1,16 @@
+services:
+  speech-to-text-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000" # Maps port 8000 on the host to port 8000 in the container
+    environment:
+      - PYTHONUNBUFFERED=1 # Ensures output is immediately flushed for logs
+  
+  speech-to-text-frontend:
+    build:
+        context: ../FiverrSpeechText/FiverrSpeechText
+        dockerfile: Dockerfile
+    ports:
+      - "8080:8080" # Map ASP.NET Core default port
