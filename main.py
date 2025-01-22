@@ -5,6 +5,7 @@ import asyncio
 from typing import Optional
 from dotenv import load_dotenv
 from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 import azure.cognitiveservices.speech as speechsdk
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 load_dotenv() # Load the environmental variables from .env file
@@ -35,7 +36,14 @@ class bcolors: # Only to apply colors to the prints
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
     
-app = FastAPI() # Create a new FastAPI app
+app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Speech key and region from your Azure Speech Recognition service
 speech_key = os.getenv("SPEECH_KEY")
@@ -165,7 +173,12 @@ async def audio_streaming(websocket: WebSocket):
         
         with open("recording.txt", "w") as file:
             for entry in file_container:
-                file.write(f"[{str(entry.time)}]  {entry.speaker_name}:  {entry.text}" + "\n")
+                if entry.speaker_name == None:
+                    entry.speaker_name = "Unknown"
+                if entry.text != None:
+                    file.write(f"Start Time {str(entry.time)}" + "\n")
+                    file.write(f"Voice to text: {entry.text}" + "\n")
+                    file.write(f"Speaker: {entry.speaker_name}" + "\n\n")
 
     async def send_messages():
         """
