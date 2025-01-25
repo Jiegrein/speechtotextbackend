@@ -81,16 +81,21 @@ def create_diarization(loop, queue):
         for prefix in prefix_for_name:
             if prefix in voice_text:
                 parts = voice_text.split(prefix, 1)  # Split only on the first occurrence of prefix
-                print(parts)
                 if len(parts) > 1:
                     after_prefix = parts[1].strip()
                     period_index = after_prefix.find('.')
-                    print(after_prefix)
+                    # if we found "." use the "." as the end point, should there be more than 2 words, we take the first 2
                     if period_index != -1:
                         name = after_prefix[:period_index].strip()
-                        print(name)
+                        if len(name.split(" ")) > 2:
+                            name = " ".join(name.split(" ")[:2])
                         return name
-                    
+                    # else use the whole sentence after the prefix then take the first 2 words
+                    else:
+                        name = after_prefix.strip()
+                        if len(name.split(" ")) > 2:
+                            name = " ".join(name.split(" ")[:2])
+                        return name
         return None
     
     def transcriber_transcribed_cb(evt: speechsdk.SpeechRecognitionEventArgs):
@@ -106,9 +111,11 @@ def create_diarization(loop, queue):
             if speaker_name_found_on_dict == None:
                 speaker_name_found_on_dict = "Unknown"
 
+            speaker_name_found_on_dict = speaker_name_found_on_dict + " - " + evt.result.speaker_id
             elapsed_time = get_elapsed_time()
-            entry = file_create(speaker_name=speaker_name, text=evt.result.text, time=elapsed_time)
-            file_container.append(entry)
+            if evt.result.text != "" and evt.result.text != None:
+                entry = file_create(speaker_name=speaker_name_found_on_dict, text=evt.result.text, time=elapsed_time)
+                file_container.append(entry)
             asyncio.run_coroutine_threadsafe(queue.put(f"{elapsed_time}|{evt.result.text}|{speaker_name_found_on_dict}"), loop)
         elif evt.result.reason == speechsdk.ResultReason.NoMatch:
             print('\tNOMATCH: Speech could not be TRANSCRIBED: {}'.format(evt.result.no_match_details))
