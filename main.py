@@ -58,6 +58,7 @@ def create_diarization(loop, queue):
     )
     speech_config.set_property(property_id=speechsdk.PropertyId.SpeechServiceResponse_DiarizeIntermediateResults, value='true')
 
+    # Gstreamer is used here to convert audio stream received to the format azure requires
     format = speechsdk.audio.AudioStreamFormat(compressed_stream_format=speechsdk.AudioStreamContainerFormat.ANY)
     stream = speechsdk.audio.PushAudioInputStream(format)
     audio_config = speechsdk.audio.AudioConfig(stream=stream)
@@ -69,12 +70,13 @@ def create_diarization(loop, queue):
 
     transcribing_stop = False
 
+    # Calculate the elapsed time
     def get_elapsed_time() -> str: 
-        # Calculate the elapsed time
         elapsed_seconds = int(time.time() - timer)
         minutes, seconds = divmod(elapsed_seconds, 60)
         return f"{minutes:02}:{seconds:02}"
 
+    # Make a dictionary everytime record button was pressed and check if speaker id match
     def get_speaker_name_by_voice(voice_text: str) -> Optional[str]:
         prefix_for_name = ["name is", "I am", "I'm"]
 
@@ -98,9 +100,11 @@ def create_diarization(loop, queue):
                         return name
         return None
     
+    # used to send words of a sentence currently being transcribed to FE so it can be displayed there
     def transcriber_transcribing_cb(evt: speechsdk.SpeechRecognitionEventArgs):
         asyncio.run_coroutine_threadsafe(queue.put(f"Transcribing|Time|{evt.result.text}|{evt.result.speaker_id}"), loop)
 
+    # used to map name with id, and will send the full word with time to FE and also saved on .txt
     def transcriber_transcribed_cb(evt: speechsdk.SpeechRecognitionEventArgs):
         print('\nTRANSCRIBED:')
         if evt.result.reason == speechsdk.ResultReason.RecognizedSpeech:
@@ -172,11 +176,6 @@ async def audio_streaming(websocket: WebSocket):
                 print(f"{bcolors.OKBLUE}API -> Stopping continuous recognition...{bcolors.ENDC}")
                 transcriber.stop_transcribing_async() # Stop speech recognition
                 print(f"{bcolors.OKBLUE}API -> Continuous recognition stopped!{bcolors.ENDC}")
-                # print(f"{bcolors.OKBLUE}API -> Exporting audio data to a file...{bcolors.ENDC}")
-                # # Save received audio data to a file
-                # with open(f"audiofiles_{datetime.now()}.webm", "wb") as f: # Create an audio file in webm format
-                #     f.write(audio_data) # Write the whole audio data to the file
-                #     print(f"{bcolors.OKBLUE}API -> Audio data exported!{bcolors.ENDC}")
                 break
             except Exception as e: # If an error occurs
                 print(f"Error here: {e}")
