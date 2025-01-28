@@ -98,6 +98,9 @@ def create_diarization(loop, queue):
                         return name
         return None
     
+    def transcriber_transcribing_cb(evt: speechsdk.SpeechRecognitionEventArgs):
+        asyncio.run_coroutine_threadsafe(queue.put(f"Transcribing|Time|{evt.result.text}|{evt.result.speaker_id}"), loop)
+
     def transcriber_transcribed_cb(evt: speechsdk.SpeechRecognitionEventArgs):
         print('\nTRANSCRIBED:')
         if evt.result.reason == speechsdk.ResultReason.RecognizedSpeech:
@@ -108,15 +111,15 @@ def create_diarization(loop, queue):
             if speaker_name != None and speaker_name_found_on_dict == None:
                 speaker_name_dict[evt.result.speaker_id] = speaker_name
                 speaker_name_found_on_dict = speaker_name
-            if speaker_name_found_on_dict == None:
+            if speaker_name_found_on_dict == None or speaker_name_found_on_dict == "":
                 speaker_name_found_on_dict = "Unknown"
 
-            speaker_name_found_on_dict = speaker_name_found_on_dict + " - " + evt.result.speaker_id
+            speaker_name_found_on_dict = speaker_name_found_on_dict + " - " + str(evt.result.speaker_id).replace("Guest", "Speaker")
             elapsed_time = get_elapsed_time()
             if evt.result.text != "" and evt.result.text != None:
                 entry = file_create(speaker_name=speaker_name_found_on_dict, text=evt.result.text, time=elapsed_time)
                 file_container.append(entry)
-            asyncio.run_coroutine_threadsafe(queue.put(f"{elapsed_time}|{evt.result.text}|{speaker_name_found_on_dict}"), loop)
+            asyncio.run_coroutine_threadsafe(queue.put(f"Transcribed|{elapsed_time}|{evt.result.text}|{speaker_name_found_on_dict}"), loop)
         elif evt.result.reason == speechsdk.ResultReason.NoMatch:
             print('\tNOMATCH: Speech could not be TRANSCRIBED: {}'.format(evt.result.no_match_details))
 
@@ -130,6 +133,7 @@ def create_diarization(loop, queue):
         transcribing_stop = True
 
     # Connect callbacks to the events fired by the conversation transcriber
+    transcriber.transcribing.connect(transcriber_transcribing_cb)
     transcriber.transcribed.connect(transcriber_transcribed_cb)
     transcriber.session_started.connect(transcriber_session_started_cb)
     # stop transcribing on either session stopped or canceled events
